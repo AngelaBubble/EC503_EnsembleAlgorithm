@@ -10,8 +10,8 @@ trlabel = train_label + (train_label == 1) - 1;
 % seperate training data into training set and testing set rst 70% and 30%
 n= length(train_label);
 randomIndex = randperm(n);
-train_index = randomIndex(1:0.1*n);
-test_index = randomIndex(0.1*n:n);
+train_index = randomIndex(1:0.7*n);
+test_index = randomIndex(0.7*n:n);
 train_data1 =train_data(train_index,:);
 trlabel1 = trlabel(train_index);
 test_data1 =train_data(test_index,:);
@@ -48,6 +48,7 @@ train_ada_CCR = zeros(M, 1);
 test_ada_CCR  = zeros(M, 1);
 
 for iter = 1 : M
+    iter
     % initial the training set for each iteration
     train_set = zeros(size(sample)); 
 
@@ -74,9 +75,9 @@ for iter = 1 : M
     X = train_set(:, 1 : size(train_set,2)-1);
     Y = train_set(:, size(train_set,2));
 
-    % apply GDA
-    gda_mdl = fitcdiscr(X, Y);
-    h_hat(:, iter) = predict(gda_mdl, X);
+    % apply KNN
+    knn_mdl = fitcknn(X,Y,'NumNeighbors',30);
+    h_hat(:, iter) = predict(knn_mdl, X);
 
     % weighted sum error for misclassified points
     err(iter) = sum(W(h_hat(:, iter) ~= Y));
@@ -89,14 +90,14 @@ for iter = 1 : M
     W = W ./ sum(W); % normalize the weight
     
     % final vote
-    train_predict(:,iter) = predict(gda_mdl, train_data1);
-    test_predict(:,iter)  = predict(gda_mdl, test_data1);
+    train_predict(:,iter) = predict(knn_mdl, train_data1);
+    test_predict(:,iter)  = predict(knn_mdl, test_data1);
     
     % calculating Adaboosting CCR for each iteration
-    train_ada_QDA       = sign(sum(train_predict * beta, 2));
-    train_ada_CCR(iter) = 1- sum(train_ada_QDA ~= trlabel1) / length(trlabel1);
-    test_ada_QDA        = sign(sum(test_predict * beta, 2));
-    test_ada_CCR(iter)  = 1- sum(test_ada_QDA ~= telabel1) / length(telabel1);
+    train_ada       = sign(sum(train_predict * beta, 2));
+    train_ada_CCR(iter) = 1- sum(train_ada ~= trlabel1) / length(trlabel1);
+    test_ada       = sign(sum(test_predict * beta, 2));
+    test_ada_CCR(iter)  = 1- sum(test_ada ~= telabel1) / length(telabel1);
     
 end
 
@@ -125,7 +126,7 @@ plot(1:M, test_CCR)
 legend('Train Adaboosting CCR','Test Adaboosting CCR','Train CCR of each iteration','Test CCR of each iteration')
 xlabel('Number of Iteration')
 ylabel('CCR')
-title('Adaboosting CCR')
+title('Adaboosting CCR for KNN as Weak Learners')
 hold off
 
 
