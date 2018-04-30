@@ -3,7 +3,8 @@ load train.mat
 load train_label.mat
 load('test.mat')
 load('test_label.mat')
-
+train_data(:,11:14) = [];
+test_data(:,11:14) = [];
 % modify the label to be +1 and -1
 trlabel = train_label + (train_label == 1) - 1;
 
@@ -25,7 +26,7 @@ CCR3 = 1- sum(predicted ~= test_label)/length(predicted);
 % Adaboosting
 % Weak learner: GDA
 % number of iterations
-M = 100;
+M = 30;
 
 sample = [train_data1 trlabel1];
 % number of samples
@@ -46,30 +47,11 @@ test_predict  = zeros(length(telabel1), M);
 % intial CCR
 train_ada_CCR = zeros(M, 1);
 test_ada_CCR  = zeros(M, 1);
-
+tmp_CCR = zeros(M,1);
 for iter = 1 : M
     % initial the training set for each iteration
-    train_set = zeros(size(sample)); 
+    train_set = datasample(sample,size(sample,1),'Replace',true,'Weights',W); 
 
-    % find the min and max of updated weight
-    min_w = min(W);
-    max_w = max(W);
-    
-    % Select the samples for each iteration with replacement
-    for i = 1 : length(W)
-        % randomly generate a possibility
-        p = (max_w - min_w) * rand(1) + min_w;
-        % if the weight is greater than this possibility
-        % save this sample to a matrix
-        if W(i)>=p
-            d(i,:)=sample(i,:);
-        end
-        % choose a sample in the saved matrix randomly into the training
-        % set in this iteration
-        t = randi(size(d,1));
-        train_set(i, :)=d(t,:);
-    end
-    
     % seperate the training set in to sample and label
     X = train_set(:, 1 : size(train_set,2)-1);
     Y = train_set(:, size(train_set,2));
@@ -89,10 +71,12 @@ for iter = 1 : M
     W = W ./ sum(W); % normalize the weight
     
     % final vote
+    tmp_predict = predict(gda_mdl, X);
     train_predict(:,iter) = predict(gda_mdl, train_data1);
     test_predict(:,iter)  = predict(gda_mdl, test_data1);
     
     % calculating Adaboosting CCR for each iteration
+    tmp_CCR(iter) = 1- sum(tmp_predict ~= Y) / length(Y);
     train_ada_QDA       = sign(sum(train_predict * beta, 2));
     train_ada_CCR(iter) = 1- sum(train_ada_QDA ~= trlabel1) / length(trlabel1);
     test_ada_QDA        = sign(sum(test_predict * beta, 2));
@@ -110,7 +94,7 @@ for i = 1:M
     test_CCR(i) = 1- sum(test_predict(:,i) ~= telabel1)/length(telabel1);
 end
 
-clear beta d gda_mdl h_hat i iter  max_w min_w N p predicted sample t
+clear  d gda_mdl h_hat i iter  max_w min_w N p predicted sample t
 clear test_ada_QDA test_data test_label 
 clear train_ada_QDA train_data train_label train_set
 clear telabel trlabel weak_learner X Y
@@ -122,10 +106,13 @@ plot(1:M, train_ada_CCR)
 plot(1:M, test_ada_CCR)
 plot(1:M, train_CCR)
 plot(1:M, test_CCR)
-legend('Train Adaboosting CCR','Test Adaboosting CCR','Train CCR of each iteration','Test CCR of each iteration')
+plot(1:M, tmp_CCR)
+legend('Train Adaboosting CCR','Test Adaboosting CCR',...
+    'Train CCR of each iteration','Test CCR of each iteration',...
+    'Train CCR for dataset at each iteration')
 xlabel('Number of Iteration')
 ylabel('CCR')
-title('Adaboosting CCR')
+title('Adaboosting with QDA as Weak Learner')
 hold off
-
-
+[max_v,i] = sort(test_ada_CCR,'descend');
+best_CCR = [max_v i];
